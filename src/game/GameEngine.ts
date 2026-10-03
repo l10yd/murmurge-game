@@ -334,6 +334,9 @@ export class GameEngine {
     Matter.Body.setAngularVelocity(body, av);
     this.registerBall(newLevel, body);
 
+    // опоры исчезли — будим всех, чтобы «висячие» соседи упали
+    this.wakeAllBalls();
+
     // score
     const gained = GAME_CONFIG.scoreByResultLevel[newLevel] ?? 0;
     this.state.score += gained;
@@ -388,6 +391,17 @@ export class GameEngine {
       this.dangerTimers.delete(body.id);
     }
     this.balls.delete(e.ballId);
+  }
+
+  /**
+   * Будим все шары: структурные изменения (merge/discard/swap) убирают опоры —
+   * спящие «висячие» соседи должны упасть. Без этого Detektor пропускает их
+   * пары (isSleeping-тела исключены из collision-детекции Matter 0.20).
+   */
+  private wakeAllBalls(): void {
+    for (const body of Matter.Composite.allBodies(this.engine.world)) {
+      if (body.label === 'ball' && !body.isStatic) Matter.Sleeping.set(body, false);
+    }
   }
 
   getBallByBodyId(bodyId: number): BallEntity | undefined {
@@ -644,6 +658,7 @@ export class GameEngine {
       const body = this.getBallBody(e);
       if (body) this.cb.onMergeEffect(body.position.x, body.position.y, e.level);
       this.removeBall(e);
+      this.wakeAllBalls();
       this.state.activeAbility = null;
       this.state.phase = 'PLAYING';
       this.push();
@@ -702,9 +717,9 @@ export class GameEngine {
     Matter.Body.setVelocity(bb, va);
     Matter.Body.setAngularVelocity(bb, avA);
 
-    // будим оба: спящая пара не детектится Matter (застревание без слияния)
-    Matter.Sleeping.set(ba, false);
-    Matter.Sleeping.set(bb, false);
+    // будим всех: спящая пара не детектится Matter (застревание без слияния),
+    // а соседи убранной опоры должны упасть
+    this.wakeAllBalls();
     // слияние сразу после обмена: без ожидания mergeCooldown
     ea.canMergeAfter = this.simTime;
     eb.canMergeAfter = this.simTime;
@@ -883,13 +898,35 @@ export class GameEngine {
 
     Matter.Engine.update(this.engine, stepMs);
 
-    for (const body of Matter.Composite.allBodies(this.engine.world)) {
-      if (body.label !== 'ball' || body.isStatic) continue;
+    for (const e of this.balls.values()) {
+      const body = this.getBallBody(e);
+      if (!body || body.isStatic) continue;
+      // лимит скорости
       const v = body.velocity;
       const sp = Math.hypot(v.x, v.y);
       if (sp > PHYSICS_CONFIG.maxSpeed) {
         const k = PHYSICS_CONFIG.maxSpeed / sp;
         Matter.Body.setVelocity(body, { x: v.x * k, y: v.y * k });
+      }
+      // страховка границ: тело не должно жить за стенками (туннелирование
+      // при встряске/слияниях) — возвращаем внутрь и гасим нормальную скорость
+      const r = BALL_CONFIG[e.level].radius;
+      const minX = r + 2;
+      const maxX = PHYSICS_CONFIG.logicalWidth - r - 2;
+      const minY = r + 1;
+      const maxY = PHYSICS_CONFIG.logicalHeight - r - 2;
+      let px = body.position.x;
+      let py = body.position.y;
+      let vx = body.velocity.x;
+      let vy = body.velocity.y;
+      let clamped = false;
+      if (px < minX) { px = minX; vx = Math.abs(vx) * 0.3; clamped = true; }
+      else if (px > maxX) { px = maxX; vx = -Math.abs(vx) * 0.3; clamped = true; }
+      if (py < minY) { py = minY; vy = Math.abs(vy) * 0.3; clamped = true; }
+      else if (py > maxY) { py = maxY; vy = -Math.abs(vy) * 0.3; clamped = true; }
+      if (clamped) {
+        Matter.Body.setPosition(body, { x: px, y: py });
+        Matter.Body.setVelocity(body, { x: vx, y: vy });
       }
     }
   }

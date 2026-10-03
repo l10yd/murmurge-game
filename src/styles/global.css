@@ -276,6 +276,34 @@ button:focus-visible {
   height: 56px;
 }
 
+/* компактная плашка следующей фигуры (mobile, внизу поля) */
+.next-compact {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: var(--panel);
+  border-radius: 999px;
+  box-shadow: var(--shadow-1);
+  padding: 4px 10px;
+  min-width: 64px;
+  min-height: 36px;
+}
+
+.next-compact-icon {
+  color: var(--ink-soft);
+  flex: none;
+}
+
+.next-compact-canvas {
+  width: 26px;
+  height: 26px;
+}
+
+.next-mobile {
+  display: none;
+}
+
 .hint {
   font-size: 11px;
   color: var(--ink-soft);
@@ -547,6 +575,24 @@ button:focus-visible {
     flex-direction: column;
     align-items: center;
     gap: var(--spacing-2);
+  }
+
+  /* правая колонка (Next + подсказка) прячется — заменяет компактная плашка внизу */
+  .side-col-right {
+    display: none;
+  }
+
+  .next-mobile {
+    display: block;
+    width: min(100%, 480px);
+    display: flex;
+    justify-content: center;
+    margin-top: calc(-1 * var(--spacing-1));
+  }
+
+  /* верхняя шапка: только Пауза + Счёт; Рекорд скрыт (дублирует левую панель) */
+  .chip-best {
+    display: none;
   }
 
   .side-col {

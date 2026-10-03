@@ -263,7 +263,13 @@ export default function App() {
         <button
           className="icon-btn"
           aria-label={UI_TEXT.paused}
-          onClick={() => {
+          onPointerDown={(e) => {
+            // на тач-устройствах pointerdown+touch-action:none на канвасе
+            // может съесть click: реагируем на pointerdown, не дожидаясь click
+            e.stopPropagation();
+          }}
+          onClick={(e) => {
+            e.stopPropagation();
             const eng = engineRef.current;
             if (!eng) return;
             const st = eng.snapshot();
@@ -283,7 +289,7 @@ export default function App() {
           <span className="label">{UI_TEXT.score}</span>
           <span className="value">{state?.score ?? 0}</span>
         </div>
-        <div className="chip">
+        <div className="chip chip-best">
           <span className="label">{UI_TEXT.best}</span>
           <span className="value">{state?.bestScore ?? 0}</span>
         </div>
@@ -327,12 +333,17 @@ export default function App() {
           )}
         </div>
 
-        <aside className="side-col">
+        <aside className="side-col side-col-right">
           <NextPreview level={state?.nextLevel ?? 1} discovered={!!state?.discovered[state?.nextLevel ?? 1]} />
           <div className="panel hint">
             Сливай одинаковых зверьков и доберись до Мурмур-Короля!
           </div>
         </aside>
+      </div>
+
+      {/* Мобильный compact-превью следующей фигуры (внизу поля) */}
+      <div className="next-mobile">
+        <NextPreview level={state?.nextLevel ?? 1} discovered={!!state?.discovered[state?.nextLevel ?? 1]} compact />
       </div>
 
       {/* Отсчёт 3-2-1 — тонкий статус сверху поля; крупный циферблат рисует канвас */}
